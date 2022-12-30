@@ -26,22 +26,28 @@ def RatingMatrixDataset(destinations):
     for index, row in data.iterrows():
         user_matrix[int(row['user_id']) - 1][int(row['movie_id']) - 1] = row['rating']
 
-    filter = user_matrix > 0
-
-    return user_matrix, filter
+    return user_matrix
 
 
 def main():
     # Hyperparameters
     k = 3
+    iterations = 100
 
     # Data
-    train_matrix, train_filter = RatingMatrixDataset(["./ml-100k/u1.base"])
-    valid_set, valid_filter = RatingMatrixDataset(["./ml-100k/u2.base"])
+    train_matrix = RatingMatrixDataset(["./ml-100k/u1.base"])
+    valid_set = RatingMatrixDataset(["./ml-100k/u2.base"])
 
-    # Alternating Least Squares (ALS) Setup
+    # Initialize both matrices
     theta = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(943, k))
     beta = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(1682, k))
+
+    for _ in range(iterations):
+        theta = als_step(train_matrix, theta, beta)
+        beta = als_step(train_matrix, beta, theta)
+        pred = np.dot(theta.T, beta)
+        print("Training Loss" + str(calculate_loss(train_matix, pred)))
+        print("Validation Loss" + str(calculate_loss(validation_matrix, pred)))
 
 
 main()
