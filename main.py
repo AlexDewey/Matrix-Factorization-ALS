@@ -46,16 +46,25 @@ def als_step(train_matrix, theta, beta, variable, learning_rate):
         return np.subtract(beta, np.multiply(learning_rate, np.subtract(train_matrix, np.dot(theta, beta.T))).T@theta)
 
 
+def calculate_loss(train_matrix, pred):
+    '''
+    Calculates total loss.
+    :param train_matrix:
+    :param pred:
+    :return: Total summed loss
+    '''
+    mask = train_matrix != 0
+    return sum(np.abs(train_matrix[mask] - pred[mask]).reshape(-1))
 
 def main():
     # Hyperparameters
     k = 3
     iterations = 100
-    learning_rate = 0.1
+    learning_rate = 1
 
     # Data
     train_matrix = RatingMatrixDataset(["./ml-100k/u1.base"])
-    valid_set = RatingMatrixDataset(["./ml-100k/u2.base"])
+    validation_matrix = RatingMatrixDataset(["./ml-100k/u2.base"])
 
     # Initialize both matrices
     theta = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(943, k))
@@ -65,7 +74,7 @@ def main():
         theta = als_step(train_matrix, theta, beta, "theta", learning_rate)
         beta = als_step(train_matrix, theta, beta, "beta", learning_rate)
         pred = np.dot(theta, beta.T)
-        print("Training Loss" + str(calculate_loss(train_matix, pred)))
+        print("Training Loss" + str(calculate_loss(train_matrix, pred)))
         print("Validation Loss" + str(calculate_loss(validation_matrix, pred)))
 
 
