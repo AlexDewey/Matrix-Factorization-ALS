@@ -41,20 +41,9 @@ def als_step(train_matrix, x, y, variable, learning_rate):
     :return: The changed variable_matrix
     """
     if variable == "theta":
-        one = np.dot(x, y.T)
-        two = np.subtract(train_matrix, one)
-        three = np.multiply(learning_rate, two)
-        four = np.dot(three, y)
-        five = np.add(x, four)
-        return five
+        return np.add(x, np.dot(np.multiply(learning_rate, np.subtract(train_matrix, np.dot(x, y.T))), y))
     else:
-        one = np.dot(x, y.T)
-        two = np.subtract(train_matrix, one)
-        three = np.multiply(learning_rate, two)
-        four = np.dot(three.T, x)
-        five = np.add(y, four)
-        return five
-        # return np.subtract(y, np.dot(np.multiply(learning_rate, np.subtract(train_matrix, np.dot(x, y.T))).T, x))
+        return np.add(y, np.dot(np.multiply(learning_rate, np.subtract(train_matrix, np.dot(x, y.T))).T, x))
 
 
 def calculate_loss(train_matrix, pred):
@@ -68,16 +57,7 @@ def calculate_loss(train_matrix, pred):
     return sum(np.abs(train_matrix[mask] - pred[mask]).reshape(-1))
 
 
-def main():
-    # Hyperparameters
-    k = 20
-    iterations = 100
-    learning_rate = 0.001
-
-    # Data
-    train_matrix = RatingMatrixDataset(["./ml-100k/u1.base"])
-    validation_matrix = RatingMatrixDataset(["./ml-100k/u2.base"])
-
+def als_matrix_factorization(k, iterations, learning_rate, train_matrix, validation_matrix, show_plot):
     # Initialize both matrices
     theta = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(943, k))
     beta = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(1682, k))
@@ -91,11 +71,28 @@ def main():
         train_loss.append(calculate_loss(train_matrix, pred))
         validation_loss.append(calculate_loss(validation_matrix, pred))
 
-    from matplotlib import pyplot as plt
-    plt.plot(train_loss)
-    plt.plot(validation_loss)
-    plt.show()
+    if show_plot:
+        from matplotlib import pyplot as plt
+        plt.plot(train_loss)
+        plt.plot(validation_loss)
+        plt.show()
 
-    print("Final validation loss with " + str(k) + " k and " + str(learning_rate) + "learning rate.")
+    print("Final validation loss with " + str(k) + " k and " + str(learning_rate) + " learning rate is " + str(validation_loss[-1]))
+
+
+def main():
+    # Hyperparameters
+    k_array = [3, 5, 10, 20, 100, 200, 500, 1000]
+    learning_rates = [0.001]
+    iterations = 100
+
+    # Data
+    train_matrix = RatingMatrixDataset(["./ml-100k/u1.base"])
+    validation_matrix = RatingMatrixDataset(["./ml-100k/u2.base"])
+
+    for k in k_array:
+        for lr in learning_rates:
+            als_matrix_factorization(k, iterations, lr, train_matrix, validation_matrix, False)
+
 
 main()
