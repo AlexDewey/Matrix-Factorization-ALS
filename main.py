@@ -58,7 +58,17 @@ def calculate_loss(train_matrix, pred):
 
 
 def als_matrix_factorization(k, iterations, learning_rate, train_matrix, validation_matrix, show_plot):
-    # Initialize both matrices
+    """
+    ALS Matrix Factorization that can either show or just write results.
+    :param k: K number of factors
+    :param iterations: Number of iterations.
+    :param learning_rate: Learning rate, too low may result in error.
+    :param train_matrix: The matrix to be learned.
+    :param validation_matrix: The matrix to be validated against.
+    :param show_plot: Whether to show the plot.
+    :return: Returns nothing. Could be set up to return last validation_loss[-1] if desired. Maybe useful for other
+    purposes.
+    """
     theta = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(943, k))
     beta = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(1682, k))
 
@@ -90,6 +100,7 @@ def main():
     train_matrix = RatingMatrixDataset(["./ml-100k/u1.base"])
     validation_matrix = RatingMatrixDataset(["./ml-100k/u2.base"])
 
+    # Run experiments
     for k in k_array:
         for lr in learning_rates:
             als_matrix_factorization(k, iterations, lr, train_matrix, validation_matrix, False)
