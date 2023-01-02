@@ -24,26 +24,42 @@ def RatingMatrixDataset(destinations):
     for index, row in data.iterrows():
         user_matrix[int(row['user_id']) - 1][int(row['movie_id']) - 1] = row['rating']
 
-    return user_matrix
+    from random import randrange
+    validation_matrix = torch.zeros(943, 1682)
+    for index, row in enumerate(user_matrix):
+        indices = torch.nonzero(row)
+        index_chosen = randrange(len(indices))
+        rating = row[indices[index_chosen]]
+        user_matrix[index][indices[index_chosen]] = 0
+        validation_matrix[index][indices[index_chosen]] = rating
+
+    return user_matrix, validation_matrix
 
 
-def als_step(train_matrix, x, y, variable, learning_rate):
+def als_step(train_matrix, x, y, variable, k):
     """
-    Alternating least squares
-    x = x + lr(S - xy)y
-    or
-    y = y + lr(S - xy)x
-    :param train_matrix: Matrix we desire
-    :param variable_matrix: Matrix we're changing
-    :param constant_matrix: Matrix we're assuming to be constants
-    :param variable: States which matrix is being altered
-    :param learning_rate: Learning rate
-    :return: The changed variable_matrix
+    ALS Step as defined by x = (sum(y*yT) + reg)^-1 * sum(rating*y)
+    or y = (sum(x*xT) + reg)^-1 * sum(rating*x)
+    :param train_matrix: True matrix with validation scores taken out.
+    :param x: x factor
+    :param y: y factor
+    :param variable: If either x or y is being updated
+    :param k: Factor length
+    :return: Updated factor chosen by variable
     """
-    if variable == "theta":
-        return np.add(x, np.dot(np.multiply(learning_rate, np.subtract(train_matrix, np.dot(x, y.T))), y))
-    else:
-        return np.add(y, np.dot(np.multiply(learning_rate, np.subtract(train_matrix, np.dot(x, y.T))).T, x))
+    if variable == "x":
+        for u_index, r_u in enumerate(train_matrix):
+            # A and B block calculations
+            r_ui_indices = torch.nonzero(r_u)
+            A = np.zeros([k, k])
+            B = np.zeros([k, 1])
+            # Looking at every Rui
+            for r_ui_index in r_ui_indices:
+                y_i = y.T[:][r_ui_index].reshape([k, 1])
+                A = np.add(A, np.dot(y_i, y_i.T))
+                B = np.add(B, np.multiply(r_u[r_ui_index], y_i))
+
+            x[u_index] = 
 
 
 def calculate_loss(train_matrix, pred):
@@ -57,10 +73,10 @@ def calculate_loss(train_matrix, pred):
     return sum(np.abs(train_matrix[mask] - pred[mask]).reshape(-1))
 
 
-def als_matrix_factorization(k, iterations, learning_rate, train_matrix, validation_matrix, show_plot):
+def als_matrix_factorization(k, iterations, train_matrix, validation_matrix, show_plot):
     """
     ALS Matrix Factorization that can either show or just write results.
-    :param k: K number of factors
+    :param k: K number of factors.
     :param iterations: Number of iterations.
     :param learning_rate: Learning rate, too low may result in error.
     :param train_matrix: The matrix to be learned.
@@ -69,15 +85,15 @@ def als_matrix_factorization(k, iterations, learning_rate, train_matrix, validat
     :return: Returns nothing. Could be set up to return last validation_loss[-1] if desired. Maybe useful for other
     purposes.
     """
-    theta = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(943, k))
-    beta = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(1682, k))
+    x = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(k, train_matrix.size(dim=0)))
+    y = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(k, train_matrix.size(dim=1)))
 
     train_loss = list()
     validation_loss = list()
     for _ in range(iterations):
-        theta = als_step(train_matrix, theta, beta, "theta", learning_rate)
-        beta = als_step(train_matrix, theta, beta, "beta", learning_rate)
-        pred = np.dot(theta, beta.T)
+        x = als_step(train_matrix, x, y, "x", k)
+        y = als_step(train_matrix, x, y, "y", k)
+        pred = np.dot(x, y.T)
         train_loss.append(calculate_loss(train_matrix, pred))
         validation_loss.append(calculate_loss(validation_matrix, pred))
 
@@ -87,23 +103,18 @@ def als_matrix_factorization(k, iterations, learning_rate, train_matrix, validat
         plt.plot(validation_loss)
         plt.show()
 
-    print("Final validation loss with " + str(k) + " k and " + str(learning_rate) + " learning rate is " + str(validation_loss[-1]))
-
 
 def main():
     # Hyperparameters
-    k_array = [3, 5, 10, 20, 100, 200, 500, 1000]
-    learning_rates = [0.001]
+    k_array = [10]
     iterations = 100
 
-    # Data
-    train_matrix = RatingMatrixDataset(["./ml-100k/u1.base"])
-    validation_matrix = RatingMatrixDataset(["./ml-100k/u2.base"])
+    # Training matrix leaves out validation matrix which is a single rating from each user
+    train_matrix, validation_matrix = RatingMatrixDataset(["./ml-100k/u1.base"])
 
     # Run experiments
     for k in k_array:
-        for lr in learning_rates:
-            als_matrix_factorization(k, iterations, lr, train_matrix, validation_matrix, False)
+        als_matrix_factorization(k, iterations, train_matrix, validation_matrix, True)
 
 
 main()
