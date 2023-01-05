@@ -36,7 +36,7 @@ def RatingMatrixDataset(destinations):
     return user_matrix, validation_matrix
 
 
-def als_step(train_matrix, x, y, variable, k):
+def als_step(train_matrix, x, y, variable, k, lmbda):
     """
     ALS Step as defined by x = (sum(y*yT) + reg)^-1 * sum(rating*y)
     or y = (sum(x*xT) + reg)^-1 * sum(rating*x)
@@ -47,6 +47,7 @@ def als_step(train_matrix, x, y, variable, k):
     :param k: Factor length
     :return: Updated factor chosen by variable
     """
+    regularizer = np.multiply(lmbda, np.identity(k))
     if variable == "x":
         # Training on every user
         for u_index, r_u in enumerate(train_matrix):
@@ -61,7 +62,7 @@ def als_step(train_matrix, x, y, variable, k):
                 B = np.add(B, np.multiply(r_u[r_ui_index], y_i))
 
             try:
-                x[u_index] = np.dot(np.linalg.inv(A), B).reshape([10])
+                x[u_index] = np.dot(np.linalg.inv(np.add(A, regularizer)), B).reshape([10])
             except:
                 # Occurs when determinant is zero. This seems to be rare so the time lost of try except seems better
                 # than calculating the determinant everytime.
@@ -77,7 +78,7 @@ def als_step(train_matrix, x, y, variable, k):
                 A = np.add(A, np.dot(x_i, x_i.T))
                 B = np.add(B, np.multiply(r_i[r_ui_index], x_i))
             try:
-                y[i_index] = np.dot(np.linalg.inv(A), B).reshape([10])
+                y[i_index] = np.dot(np.linalg.inv(np.add(A, regularizer)), B).reshape([10])
             except:
                 # Occurs when determinant is zero. This seems to be rare so the time lost of try except seems better
                 # than calculating the determinant everytime.
@@ -96,7 +97,7 @@ def calculate_loss(train_matrix, pred):
     return sum(np.abs(train_matrix[mask] - pred[mask]).reshape(-1))
 
 
-def als_matrix_factorization(k, iterations, train_matrix, validation_matrix, show_plot):
+def als_matrix_factorization(k, iterations, train_matrix, validation_matrix, show_plot, lmbda):
     """
     ALS Matrix Factorization that can either show or just write results.
     :param k: K number of factors.
@@ -114,9 +115,11 @@ def als_matrix_factorization(k, iterations, train_matrix, validation_matrix, sho
     train_loss = list()
     validation_loss = list()
     for _ in range(iterations):
-        x = als_step(train_matrix, x, y, "x", k)
-        y = als_step(train_matrix, x, y, "y", k)
+        x = als_step(train_matrix, x, y, "x", k, lmbda)
+        y = als_step(train_matrix, x, y, "y", k, lmbda)
         pred = np.dot(x, y.T)
+        print(calculate_loss(train_matrix, pred))
+        print(calculate_loss(validation_matrix, pred))
         train_loss.append(calculate_loss(train_matrix, pred))
         validation_loss.append(calculate_loss(validation_matrix, pred))
 
@@ -130,6 +133,7 @@ def als_matrix_factorization(k, iterations, train_matrix, validation_matrix, sho
 def main():
     # Hyperparameters
     k_array = [10]
+    lmbdas = [0.2]
     iterations = 100
 
     # Training matrix leaves out validation matrix which is a single rating from each user
@@ -137,7 +141,8 @@ def main():
 
     # Run experiments
     for k in k_array:
-        als_matrix_factorization(k, iterations, train_matrix, validation_matrix, True)
+        for lmbda in lmbdas:
+            als_matrix_factorization(k, iterations, train_matrix, validation_matrix, True, lmbda)
 
 
 main()
