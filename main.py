@@ -48,6 +48,7 @@ def als_step(train_matrix, x, y, variable, k):
     :return: Updated factor chosen by variable
     """
     if variable == "x":
+        # Training on every user
         for u_index, r_u in enumerate(train_matrix):
             # A and B block calculations
             r_ui_indices = torch.nonzero(r_u)
@@ -55,11 +56,33 @@ def als_step(train_matrix, x, y, variable, k):
             B = np.zeros([k, 1])
             # Looking at every Rui
             for r_ui_index in r_ui_indices:
-                y_i = y.T[:][r_ui_index].reshape([k, 1])
+                y_i = y[:][r_ui_index].reshape([k, 1])
                 A = np.add(A, np.dot(y_i, y_i.T))
                 B = np.add(B, np.multiply(r_u[r_ui_index], y_i))
 
-            x[u_index] = 
+            try:
+                x[u_index] = np.dot(np.linalg.inv(A), B).reshape([10])
+            except:
+                # Occurs when determinant is zero. This seems to be rare so the time lost of try except seems better
+                # than calculating the determinant everytime.
+                pass
+        return x
+    elif variable == "y":
+        for i_index, r_i in enumerate(train_matrix.T):
+            r_ui_indices = torch.nonzero(r_i)
+            A = np.zeros([k, k])
+            B = np.zeros([k, 1])
+            for r_ui_index in r_ui_indices:
+                x_i = x[:][r_ui_index].reshape([k, 1])
+                A = np.add(A, np.dot(x_i, x_i.T))
+                B = np.add(B, np.multiply(r_i[r_ui_index], x_i))
+            try:
+                y[i_index] = np.dot(np.linalg.inv(A), B).reshape([10])
+            except:
+                # Occurs when determinant is zero. This seems to be rare so the time lost of try except seems better
+                # than calculating the determinant everytime.
+                pass
+        return y
 
 
 def calculate_loss(train_matrix, pred):
@@ -85,8 +108,8 @@ def als_matrix_factorization(k, iterations, train_matrix, validation_matrix, sho
     :return: Returns nothing. Could be set up to return last validation_loss[-1] if desired. Maybe useful for other
     purposes.
     """
-    x = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(k, train_matrix.size(dim=0)))
-    y = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(k, train_matrix.size(dim=1)))
+    x = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(train_matrix.size(dim=0), k))
+    y = np.random.normal(loc=0, scale=1 / math.sqrt(k), size=(train_matrix.size(dim=1), k))
 
     train_loss = list()
     validation_loss = list()
